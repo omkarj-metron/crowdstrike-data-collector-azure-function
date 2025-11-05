@@ -6,24 +6,46 @@ from typing import Optional, List
 from pathlib import Path
 
 # Add parent directory to path to allow imports from src
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Handle both local and Azure deployment paths
+current_dir = Path(__file__).parent
+parent_dir = current_dir.parent
+sys.path.insert(0, str(parent_dir))
 
-import azure.functions as func
+try:
+    import azure.functions as func
+except ImportError as e:
+    logging.error(f"Failed to import azure.functions: {e}")
+    raise
 
-from src.utils import setup_logger, get_env_config, ensure_directories
-from src.crowdstrike_manager import CrowdStrikeRTR, BloodhoundManager
-from src.rtr import process_script
+try:
+    from src.utils import setup_logger, get_env_config, ensure_directories
+    from src.crowdstrike_manager import CrowdStrikeRTR, BloodhoundManager
+    from src.rtr import process_script
+except ImportError as e:
+    logging.error(f"Failed to import src modules: {e}")
+    logging.error(f"Current directory: {os.getcwd()}")
+    logging.error(f"Python path: {sys.path}")
+    logging.error(f"Parent directory: {parent_dir}")
+    logging.error(f"Parent directory exists: {parent_dir.exists()}")
+    raise
 
 
 def main(mytimer: func.TimerRequest) -> None:
     """Azure Function v1 with timer trigger for CrowdStrike RTR data collection."""
-    utc_timestamp = datetime.datetime.utcnow().replace(
-        tzinfo=datetime.timezone.utc).isoformat()
-    
-    if mytimer.past_due:
-        logging.info('The timer is past due!')
-    
-    logging.info('CrowdStrike RTR data collection timer trigger function executed at %s', utc_timestamp)
+    try:
+        utc_timestamp = datetime.datetime.utcnow().replace(
+            tzinfo=datetime.timezone.utc).isoformat()
+        
+        if mytimer.past_due:
+            logging.info('The timer is past due!')
+        
+        logging.info('CrowdStrike RTR data collection timer trigger function executed at %s', utc_timestamp)
+        logging.info('Current working directory: %s', os.getcwd())
+        logging.info('Python path: %s', sys.path)
+        
+    except Exception as e:
+        logging.exception("Error in function initialization: %s", e)
+        raise
     
     try:
         # Setup required directories
@@ -180,4 +202,6 @@ def main(mytimer: func.TimerRequest) -> None:
 
     except Exception as e:
         logging.exception("Unhandled error in Azure Function: %s", e)
+        # Re-raise to ensure Azure Functions sees this as a failure
+        raise
 

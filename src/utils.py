@@ -43,7 +43,9 @@ def get_env_config():
     # Required CrowdStrike config
     script_file_names = os.getenv("SCRIPT_FILE_NAMES")
     if not script_file_names:
-        raise ValueError("SCRIPT_FILE_NAMES environment variable not set. Provide comma-separated script filenames.")
+        error_msg = "SCRIPT_FILE_NAMES environment variable not set. Provide comma-separated script filenames. Available env vars: " + ", ".join(os.environ.keys())
+        logging.error(error_msg)
+        raise ValueError(error_msg)
     script_names = [s.strip() for s in script_file_names.split(",") if s.strip()]
 
     # Optional config with defaults
@@ -73,9 +75,9 @@ def ensure_directories():
     In Azure Functions (cloud), use /tmp for temporary storage or Azure Files for persistent storage.
     For local development (including func start), use current directory.
     """
-    # Check if running in Azure Functions cloud (not local func start)
-    # Azure Functions cloud sets WEBSITE_INSTANCE_ID, local func start does not
-    is_azure_cloud = os.environ.get("WEBSITE_INSTANCE_ID") is not None
+    # Use custom variable that you can set manually
+    # Set to "true" in Azure Portal, "false" locally
+    is_azure_cloud = os.environ.get("USE_AZURE_TMP_DIR", "false").lower() == "true"
     
     if is_azure_cloud:
         # Running in Azure Functions cloud - use /tmp for temporary storage
